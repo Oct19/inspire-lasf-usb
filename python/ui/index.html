@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CATs bench</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1a1a1a;
+      --line: #c8c2b4;
+      --paper: #f6f3ec;
+      --card: #fffdf8;
+      --stop: #8d1d18;
+      --ok: #1d5c3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.4 "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 8px 12px 12px; }
+    h1 { font-size: 18px; font-weight: 650; margin: 0; }
+    p.lead { margin: 2px 0 6px; color: #3d3a34; font-size: 13px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
+    button, input, select {
+      font: inherit;
+      color: var(--ink);
+      background: var(--card);
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 8px 12px;
+    }
+    button { cursor: pointer; min-height: 40px; }
+    button:hover { background: #efeae0; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    button.stop { background: var(--stop); color: white; border-color: var(--stop); font-weight: 650; }
+    button.stop:hover { background: #6e1612; }
+    button.tab.on { background: #1a1a1a; color: white; }
+    input#sps { width: 220px; padding: 0 4px; }
+    button.go { background: var(--ok); color: white; border-color: var(--ok); font-weight: 650; }
+    button.go:hover { background: #164830; }
+    button.go:disabled {
+      background: #c8c2b4;
+      border-color: #c8c2b4;
+      color: #fff;
+      opacity: 1;
+      cursor: default;
+    }
+    button.wait:disabled {
+      background: #c8c2b4;
+      border-color: #c8c2b4;
+      color: #fff;
+      opacity: 1;
+      cursor: default;
+    }
+    button.warn { background: #e0b000; color: #1a1a1a; border-color: #8a6a00; font-weight: 650; }
+    button.warn:hover { background: #c99b00; }
+    .marker-warn { color: #8a6a00; font-weight: 650; }
+    #ndi-link { min-width: 8.5rem; }
+    #note { width: 14rem; }
+    #dur { width: 3.6rem; }
+    #cycles { width: 3rem; }
+    #plan { min-width: 6.5rem; }
+    .note-field { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    button.icon {
+      width: 40px;
+      min-width: 40px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.icon .tri {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 8px 0 8px 14px;
+      border-color: transparent transparent transparent #fff;
+      margin-left: 3px;
+    }
+    button.icon .bars { display: none; gap: 4px; }
+    button.icon .bars i { display: block; width: 4px; height: 14px; background: #fff; }
+    button.icon.playing .tri { display: none; }
+    button.icon.playing .bars { display: flex; }
+    button.icon.stop .sq { width: 12px; height: 12px; background: #fff; }
+    button.icon.wait { background: #c8c2b4; border-color: #c8c2b4; }
+    #note:disabled, #dur:disabled { background: #e6e2d8; color: #6b665c; }
+    #ndi-gate {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 26, 26, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #ndi-gate[hidden] { display: none; }
+    #ndi-gate .card {
+      background: var(--card);
+      border: 1px solid #2a2a2a;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 16rem;
+    }
+    #ndi-gate p { margin: 0; }
+    label { display: inline-flex; gap: 6px; align-items: center; }
+    input[type="number"], input[type="text"] { width: 7.5rem; }
+    .ends { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: #5c574e; }
+    .slider-wrap {
+      position: relative;
+      height: 36px;
+      margin-top: 2px;
+    }
+    .rail, .fill {
+      position: absolute;
+      left: 9px;
+      pointer-events: none;
+      border-radius: 4px;
+    }
+    .rail {
+      right: 9px;
+      top: 15px;
+      height: 6px;
+      background: #d9d3c7;
+      z-index: 2;
+    }
+    .fill {
+      top: 8px;
+      height: 20px;
+      width: 0;
+      background: rgba(47, 111, 168, 0.45);
+      z-index: 1;
+    }
+    .slider-wrap input[type="range"] {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      height: 36px;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .slider-wrap input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      background: transparent;
+      border: 0;
+    }
+    .slider-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      border: 2px solid #fffdf8;
+      box-shadow: 0 0 0 1px #1a1a1a;
+      cursor: grab;
+    }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
+    article {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    article { padding: 8px 10px; }
+    article h2 { margin: 0 0 4px; font-size: 14px; }
+    .num { font-variant-numeric: tabular-nums; font-family: "Cascadia Mono", Consolas, monospace; }
+    .big { font-size: 20px; }
+    .muted { color: #5c574e; font-size: 12px; }
+    .curve, .speed {
+      width: 100%;
+      display: block;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      touch-action: none;
+    }
+    .curve { height: 150px; }
+    .speed, .force { height: 110px; }
+    .plot { position: relative; }
+    .plot + .plot { margin-top: 6px; }
+    .now {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      margin-left: -0.75px;
+      background: #8d1d18;
+      pointer-events: none;
+      display: none;
+    }
+    .plot-title { margin: 8px 0 4px; }
+    button.on { background: #1a1a1a; color: #fff; }
+    #banner {
+      min-height: 1.2em;
+      margin: 4px 0;
+      padding: 4px 8px;
+      background: #fff;
+      border-left: 4px solid var(--ok);
+    }
+    #banner.bad { border-left-color: var(--stop); }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 4px 8px;
+      min-height: 0;
+      margin: 2px 0 0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="cards">
+    <article>
+      <h2>Pair 1 · LASF 1</h2>
+      <div class="big num" id="p1pos">—</div>
+      <div class="muted num" id="p1meta">position</div>
+      <div class="row">
+        <div class="big num" id="p1force">—</div>
+        <button type="button" data-zero="1">Zero load</button>
+      </div>
+      <div class="ends"><span>Retract</span><span class="num" id="s1cmd">command</span><span>Extend</span></div>
+      <div class="slider-wrap" id="wrap1">
+        <div class="fill" id="fill1"></div>
+        <div class="rail"></div>
+        <input id="slide1" type="range" min="0" max="2000" value="2000" aria-label="Pair 1 command" />
+      </div>
+    </article>
+    <article>
+      <h2>Pair 2 · LASF 2</h2>
+      <div class="big num" id="p2pos">—</div>
+      <div class="muted num" id="p2meta">position</div>
+      <div class="row">
+        <div class="big num" id="p2force">—</div>
+        <button type="button" data-zero="2">Zero load</button>
+      </div>
+      <div class="ends"><span>Retract</span><span class="num" id="s2cmd">command</span><span>Extend</span></div>
+      <div class="slider-wrap" id="wrap2">
+        <div class="fill" id="fill2"></div>
+        <div class="rail"></div>
+        <input id="slide2" type="range" min="0" max="2000" value="2000" aria-label="Pair 2 command" />
+      </div>
+    </article>
+  </div>
+
+  <div class="cards">
+    <div>
+      <div class="plot"><canvas class="curve" id="curve1" width="520" height="150"></canvas><div class="now"></div></div>
+      <div class="plot"><canvas class="speed" id="speed1" width="520" height="110"></canvas><div class="now"></div></div>
+      <div class="plot"><canvas class="force" id="force1" width="520" height="110"></canvas><div class="now"></div></div>
+    </div>
+    <div>
+      <div class="plot"><canvas class="curve" id="curve2" width="520" height="150"></canvas><div class="now"></div></div>
+      <div class="plot"><canvas class="speed" id="speed2" width="520" height="110"></canvas><div class="now"></div></div>
+      <div class="plot"><canvas class="force" id="force2" width="520" height="110"></canvas><div class="now"></div></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <select id="plan" aria-label="Test plan">
+      <option value="curve">curve</option>
+      <option value="testA">testA</option>
+      <option value="testB">testB</option>
+    </select>
+    <button id="play" class="icon go" type="button" aria-label="Play"><span class="tri"></span><span class="bars"><i></i><i></i></span></button>
+    <button id="stop" class="icon stop" type="button" aria-label="Stop"><span class="sq"></span></button>
+    <label><input id="smooth" type="checkbox" /> Smooth</label>
+    <label>Cycles <input id="cycles" type="number" min="1" max="20" step="1" value="2" /></label>
+    <label>Duration <input id="dur" type="number" min="1" max="20" step="1" value="4" /> s</label>
+    <label class="note-field">Note <input id="note" type="text" placeholder="100 g, continuum label" /></label>
+    <span id="marker-warn" class="marker-warn" hidden>marker not found</span>
+  </div>
+  <div class="row">
+    <button id="ndi-link" class="go" type="button">Connect</button>
+    <button id="ndi-beep" type="button">Beep</button>
+    <span class="num" id="ndi-xyz">X: Null, Y: Null, Z: Null</span>
+  </div>
+  <div id="ndi-gate" hidden>
+    <div class="card">
+      <p>Not ready</p>
+      <div id="play-checks"></div>
+      <button id="play-cancel" type="button">Cancel</button>
+    </div>
+  </div>
+</main>
+<script>
+function say() {}
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: body ? {"Content-Type": "application/json"} : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!data.ok) say(data.error || "Request failed", true);
+  else if (data.message) say(data.message, false);
+  return data;
+}
+function fmtPair(pair, posEl, metaEl, forceEl) {
+  if (!pair) {
+    posEl.textContent = "—";
+    metaEl.textContent = "not connected";
+    forceEl.textContent = "—";
+    return;
+  }
+  posEl.textContent = pair.position + " measured";
+  metaEl.textContent = pair.mm.toFixed(2) + " mm" + (pair.fault ? " · " + pair.fault : "");
+  const newton = pair.force_N;
+  forceEl.textContent = (newton < 0 ? "−" : "") + Math.abs(newton).toFixed(3) + " N";
+}
+async function refresh() {
+  try {
+    const res = await fetch("/api/state");
+    const data = await res.json();
+    if (data.message) say(data.message, data.ok === false);
+    const byId = {};
+    (data.pairs || []).forEach(p => { byId[p.id] = p; });
+    fmtPair(byId[1], p1pos, p1meta, p1force);
+    fmtPair(byId[2], p2pos, p2meta, p2force);
+    [1, 2].forEach(id => {
+      if (!byId[id]) return;
+      if (!seen[id] && !dragging[id]) {
+        setCommand(id, byId[id].target);
+        seen[id] = true;
+      }
+      if (!frozen) placeMeasured(id, byId[id].position);
+    });
+    showRecord(data);
+    showPlay(data);
+    showNdi(data.ndi);
+    noteMeasured(data);
+    if (data.speed_limit) speedLimit = Number(data.speed_limit);
+    if (data.connected && !driveArmed) {
+      driveArmed = true;
+      api("/api/drive-mode", {mode: "speed"});
+    }
+    if (!data.connected && Date.now() - actuatorTry > 2000) {
+      actuatorTry = Date.now();
+      api("/api/connect", {});
+    }
+  } catch (err) {
+    say(String(err), true);
+  }
+}
+function noteMeasured(data) {
+  if (data.paused || frozen) return;
+  if (!data.busy || data.motion_s == null) return;
+  if (data.play_id !== tracePlay) {
+    tracePlay = data.play_id;
+    traceCycle = -1;
+    trace[1] = [];
+    trace[2] = [];
+    traceSample = -1;
+    traceRead = {1: -1, 2: -1};
+  }
+  if (data.sample_n === traceSample) return;
+  traceSample = data.sample_n;
+  const dur = (lastPlay && lastPlay.dur) || duration();
+  const cycles = (lastPlay && lastPlay.cycles) || cycleCount();
+  const cycle = Math.floor(data.motion_s / dur + 1e-9);
+  if (cycle >= cycles) return;
+  if (cycle !== traceCycle) {
+    traceCycle = cycle;
+    trace[1] = [];
+    trace[2] = [];
+  }
+  const t = data.motion_s - cycle * dur;
+  const byId = {};
+  (data.pairs || []).forEach(p => { byId[p.id] = p; });
+  [1, 2].forEach(id => {
+    const pair = byId[id];
+    if (!pair || pair.position == null) return;
+    // A missed read used to be repeated. The next real sample then looked
+    // like a speed far past the axis. Only a new reading is a new point.
+    if (pair.read_n != null) {
+      if (pair.read_n === traceRead[id]) return;
+      traceRead[id] = pair.read_n;
+    }
+    trace[id].push({
+      t,
+      p: pair.position,
+      v: typeof pair.speed === "number" ? pair.speed : null,
+      f: typeof pair.force_N === "number" ? pair.force_N : null,
+    });
+  });
+  if (dragAt < 0) drawCurve();
+}
+let actuatorTry = 0;
+let driveArmed = false;
+document.querySelectorAll("[data-zero]").forEach(btn => {
+  btn.onclick = () => api("/api/limits/zero", {id: Number(btn.dataset.zero)});
+});
+let gateFrom = "play";
+let motion = "idle";
+const noteBox = document.getElementById("note");
+const TEST_PLANS = {testA: null, testB: null};
+function setRecordBusy() {}
+function showRecord(data) {
+  const warn = document.getElementById("marker-warn");
+  if (warn.dataset.plan) return;
+  warn.hidden = !data.marker_warning;
+  if (data.marker_warning) warn.textContent = "marker not found";
+  document.getElementById("dur").disabled = false;
+  noteBox.disabled = false;
+}
+let ndiConnectingUntil = 0;
+let ndiHoldDisconnect = 0;
+function showNdi(ndi) {
+  const text = ndi && ndi.xyz;
+  const missing = !text || text === "—";
+  document.getElementById("ndi-xyz").textContent = missing
+    ? "X: Null, Y: Null, Z: Null"
+    : text;
+  const link = document.getElementById("ndi-link");
+  const on = !!(ndi && (ndi.connected || ndi.resetting));
+  if (on) {
+    ndiConnectingUntil = 0;
+    ndiHoldDisconnect = Date.now() + 400;
+    link.textContent = "Disconnect";
+    link.className = "stop";
+    link.disabled = false;
+    return;
+  }
+  if (Date.now() < ndiConnectingUntil) {
+    link.textContent = "Connecting";
+    link.className = "go";
+    link.disabled = true;
+    return;
+  }
+  if (Date.now() < ndiHoldDisconnect) {
+    link.textContent = "Disconnect";
+    link.className = "stop";
+    link.disabled = false;
+    return;
+  }
+  ndiConnectingUntil = 0;
+  link.textContent = "Connect";
+  link.className = "go";
+  link.disabled = false;
+}
+document.getElementById("ndi-link").onclick = () => {
+  const link = document.getElementById("ndi-link");
+  if (link.disabled) return;
+  if (link.classList.contains("stop")) {
+    ndiConnectingUntil = 0;
+    ndiHoldDisconnect = 0;
+    api("/api/ndi/disconnect", {});
+    return;
+  }
+  ndiHoldDisconnect = 0;
+  ndiConnectingUntil = Date.now() + 3000;
+  link.textContent = "Connecting";
+  link.className = "go";
+  link.disabled = true;
+  api("/api/ndi/connect", {}).then(data => {
+    const linked = data && data.ndi && (data.ndi.connected || data.ndi.resetting);
+    if (!linked) ndiConnectingUntil = 0;
+    if (data && data.ndi) showNdi(data.ndi);
+  }).catch(() => { ndiConnectingUntil = 0; });
+};
+document.getElementById("ndi-beep").onclick = () => api("/api/ndi/command", {name: "beep"});
+
+const slides = {
+  1: document.getElementById("slide1"),
+  2: document.getElementById("slide2"),
+};
+const dragging = {1: false, 2: false};
+const seen = {1: false, 2: false};
+const THUMB = 18;
+
+function clampCount(counts) {
+  return Math.max(0, Math.min(2000, Math.round(Number(counts))));
+}
+function setCommand(id, counts) {
+  counts = clampCount(counts);
+  slides[id].value = String(counts);
+  document.getElementById(id === 1 ? "s1cmd" : "s2cmd").textContent = String(counts);
+}
+function placeMeasured(id, counts) {
+  const wrap = document.getElementById("wrap" + id);
+  const fill = document.getElementById("fill" + id);
+  const travel = Math.max(1, wrap.clientWidth - THUMB);
+  fill.style.width = (clampCount(counts) / 2000) * travel + "px";
+}
+let aimQueued = false;
+function sendAim(live) {
+  const post = () => api("/api/speed-go", {
+    speed: 1200,
+    live,
+    counts: {1: Number(slides[1].value), 2: Number(slides[2].value)},
+  });
+  if (!live) {
+    aimQueued = false;
+    post();
+    return;
+  }
+  if (aimQueued) return;
+  aimQueued = true;
+  setTimeout(() => {
+    aimQueued = false;
+    if (dragging[1] || dragging[2]) post();
+  }, 70);
+}
+
+function bindSlider(id) {
+  const el = slides[id];
+  const label = document.getElementById(id === 1 ? "s1cmd" : "s2cmd");
+  el.addEventListener("pointerdown", (ev) => {
+    try { el.setPointerCapture(ev.pointerId); } catch (err) { /* already released */ }
+    dragging[id] = true;
+    label.textContent = el.value;
+    sendAim(true);
+  });
+  el.addEventListener("input", () => {
+    dragging[id] = true;
+    label.textContent = el.value;
+    sendAim(true);
+  });
+  const end = () => {
+    dragging[id] = false;
+    label.textContent = el.value;
+    if (dragging[1] || dragging[2]) return;
+    sendAim(false);
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+}
+bindSlider(1);
+bindSlider(2);
+function waveKnots(kind) {
+  const dur = 4;
+  const pts = [];
+  for (let i = 0; i <= 4; i++) {
+    const t = dur * i / 4;
+    const phase = 2 * Math.PI * t / dur;
+    const wave = kind === "sin" ? -Math.cos(phase) : Math.cos(phase);
+    pts.push({t, p: 1000 + 1000 * wave});
+  }
+  return pts;
+}
+const curves = {1: waveKnots("sin"), 2: waveKnots("cos")};
+const curveReady = {1: false, 2: false};
+let dragAt = -1;
+const curvePad = {l: 0, r: 0, t: 0, b: 0};
+
+function duration() {
+  return Math.max(1, Number(document.getElementById("dur").value) || 2);
+}
+const STROKE = 2000;
+function cleanKnots(pts) {
+  const sorted = pts.map(pt => ({
+    t: Number(pt.t),
+    p: Math.max(0, Math.min(STROKE, Number(pt.p))),
+  })).sort((a, b) => a.t - b.t);
+  const cleaned = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    let t = sorted[i].t;
+    if (t <= cleaned[cleaned.length - 1].t + 1e-4) t = cleaned[cleaned.length - 1].t + 1e-3;
+    cleaned.push({t, p: sorted[i].p});
+  }
+  return cleaned;
+}
+function cubicState(pts) {
+  const n = pts.length - 1;
+  const h = pts.slice(0, -1).map((pt, i) => pts[i + 1].t - pt.t);
+  const y = pts.map(pt => pt.p);
+  const size = n + 1;
+  const lower = Array(n).fill(0);
+  const diag = Array(size).fill(0);
+  const upper = Array(n).fill(0);
+  const rhs = Array(size).fill(0);
+  diag[0] = 2 * h[0];
+  upper[0] = h[0];
+  rhs[0] = 6 * ((y[1] - y[0]) / h[0]);
+  for (let i = 1; i < n; i++) {
+    lower[i - 1] = h[i - 1];
+    diag[i] = 2 * (h[i - 1] + h[i]);
+    upper[i] = h[i];
+    rhs[i] = 6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]);
+  }
+  lower[n - 1] = h[n - 1];
+  diag[n] = 2 * h[n - 1];
+  rhs[n] = 6 * (0 - (y[n] - y[n - 1]) / h[n - 1]);
+  const width = diag.slice();
+  const slope = rhs.slice();
+  for (let i = 1; i < size; i++) {
+    const weight = lower[i - 1] / width[i - 1];
+    width[i] -= weight * upper[i - 1];
+    slope[i] -= weight * slope[i - 1];
+  }
+  const moment = Array(size).fill(0);
+  moment[size - 1] = slope[size - 1] / width[size - 1];
+  for (let i = size - 2; i >= 0; i--) moment[i] = (slope[i] - upper[i] * moment[i + 1]) / width[i];
+  return function(time) {
+    if (time <= pts[0].t) return [y[0], 0, moment[0]];
+    if (time >= pts[pts.length - 1].t) return [y[y.length - 1], 0, moment[moment.length - 1]];
+    let i = 0;
+    while (i < n - 1 && time > pts[i + 1].t) i++;
+    const span = h[i];
+    const dt = time - pts[i].t;
+    const a = y[i];
+    const b = (y[i + 1] - y[i]) / span - span * (2 * moment[i] + moment[i + 1]) / 6;
+    const c = moment[i] / 2;
+    const d = (moment[i + 1] - moment[i]) / (6 * span);
+    return [
+      a + b * dt + c * dt * dt + d * dt * dt * dt,
+      b + 2 * c * dt + 3 * d * dt * dt,
+      2 * c + 6 * d * dt,
+    ];
+  };
+}
+function quintic(t0, t1, p0, v0, a0, p1, v1, a1) {
+  const span = t1 - t0;
+  if (span <= 1e-9) return () => [p1, 0, 0];
+  const c0 = p0;
+  const c1 = v0 * span;
+  const c2 = 0.5 * a0 * span * span;
+  const pos = p1 - c0 - c1 - c2;
+  const vel = v1 * span - c1 - 2 * c2;
+  const acc = a1 * span * span - 2 * c2;
+  const c5 = 6 * pos - 3 * vel + 0.5 * acc;
+  const c4 = 0.25 * acc - 0.5 * vel - 2.5 * c5;
+  const c3 = pos - c4 - c5;
+  return function(time) {
+    let u = (time - t0) / span;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    const u2 = u * u;
+    const u3 = u2 * u;
+    const p = c0 + c1 * u + c2 * u2 + c3 * u3 + c4 * u2 * u2 + c5 * u2 * u3;
+    const dp = c1 + 2 * c2 * u + 3 * c3 * u2 + 4 * c4 * u3 + 5 * c5 * u2 * u2;
+    const d2 = 2 * c2 + 6 * c3 * u + 12 * c4 * u2 + 20 * c5 * u3;
+    return [p, dp / span, d2 / (span * span)];
+  };
+}
+function hermite(t0, t1, p0, v0, p1, v1) {
+  const span = t1 - t0;
+  if (span <= 1e-9) return () => [p1, 0, 0];
+  const dist = p1 - p0;
+  function clip(speed) {
+    if (Math.abs(dist) < 1e-9) return 0;
+    let alpha = speed * span / dist;
+    if (alpha < 0) alpha = 0;
+    else if (alpha > 3) alpha = 3;
+    return alpha * dist / span;
+  }
+  v0 = clip(v0);
+  v1 = clip(v1);
+  return function(time) {
+    let u = (time - t0) / span;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    const u2 = u * u;
+    const u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1;
+    const h10 = u3 - 2 * u2 + u;
+    const h01 = -2 * u3 + 3 * u2;
+    const h11 = u3 - u2;
+    const p = h00 * p0 + h10 * span * v0 + h01 * p1 + h11 * span * v1;
+    const speed = ((6 * u2 - 6 * u) * p0 + (3 * u2 - 4 * u + 1) * span * v0 + (-6 * u2 + 6 * u) * p1 + (3 * u2 - 2 * u) * span * v1) / span;
+    const acc = ((12 * u - 6) * p0 + (6 * u - 4) * span * v0 + (-12 * u + 6) * p1 + (6 * u - 2) * span * v1) / (span * span);
+    return [p, speed, acc];
+  };
+}
+function inRange(fn, t0, t1, lo, hi, n) {
+  if (t1 < t0 - 1e-9) return false;
+  const steps = Math.max(4, n || 32);
+  for (let i = 0; i <= steps; i++) {
+    const p = fn(t0 + (t1 - t0) * i / steps)[0];
+    if (p < lo - 0.05 || p > hi + 0.05) return false;
+  }
+  return true;
+}
+function inSpan(fn, t0, t1, pa, pb) {
+  const low = Math.min(pa, pb) - 0.4;
+  const high = Math.max(pa, pb) + 0.4;
+  const steps = 24;
+  for (let i = 0; i <= steps; i++) {
+    const p = fn(t0 + (t1 - t0) * i / steps)[0];
+    if (p < low || p > high) return false;
+  }
+  return true;
+}
+function bridge(t0, t1, p0, v0, a0, p1, v1, a1) {
+  const options = [
+    quintic(t0, t1, p0, v0, a0, p1, v1, a1),
+    quintic(t0, t1, p0, v0, 0, p1, v1, 0),
+    hermite(t0, t1, p0, v0, p1, v1),
+    quintic(t0, t1, p0, 0, 0, p1, 0, 0),
+  ];
+  for (let i = 0; i < options.length; i++) {
+    if (inRange(options[i], t0, t1, 0, STROKE) && inSpan(options[i], t0, t1, p0, p1)) return options[i];
+  }
+  return options[3];
+}
+function outsideLevel(p) {
+  if (p > STROKE + 0.25) return STROKE;
+  if (p < -0.25) return 0;
+  return null;
+}
+function bisectLevel(state, left, right, level) {
+  let sign = state(left)[0] - level;
+  for (let k = 0; k < 42; k++) {
+    const mid = 0.5 * (left + right);
+    if ((state(mid)[0] - level) * sign <= 0) right = mid;
+    else {
+      left = mid;
+      sign = state(left)[0] - level;
+    }
+  }
+  return 0.5 * (left + right);
+}
+function excursions(state, t0, t1) {
+  const steps = Math.max(60, Math.round((t1 - t0) / 0.002));
+  const found = [];
+  let active = null;
+  let prevT = t0;
+  let prevP = state(t0)[0];
+  for (let i = 1; i <= steps; i++) {
+    const t = t0 + (t1 - t0) * i / steps;
+    const p = state(t)[0];
+    const level = outsideLevel(p);
+    if (!active) {
+      if (level !== null) {
+        const hit = outsideLevel(prevP) !== null ? prevT : bisectLevel(state, prevT, t, level);
+        active = [level, hit, t];
+      }
+    } else if (level === active[0]) {
+      active[2] = t;
+    } else {
+      active[2] = bisectLevel(state, prevT, t, active[0]);
+      found.push(active);
+      active = null;
+      if (level !== null) {
+        const hit = bisectLevel(state, prevT, t, level);
+        active = [level, hit, t];
+      }
+    }
+    prevT = t;
+    prevP = p;
+  }
+  if (active) found.push([active[0], active[1], Math.min(active[2], t1)]);
+  return found;
+}
+function pieceInside(state, t0, t1) {
+  return excursions(state, t0, t1).length === 0;
+}
+function hold(level) {
+  return () => [level, 0, 0];
+}
+function brakeBefore(state, cursor, tHit, level) {
+  const room = tHit - cursor;
+  if (room <= 1e-4) return null;
+  let fallback = null;
+  const fracs = [1, 0.82, 0.64, 0.48, 0.34, 0.22, 0.12, 0.06];
+  for (let i = 0; i < fracs.length; i++) {
+    const h = room * fracs[i];
+    if (h <= 1e-4) continue;
+    const tAnchor = tHit - h;
+    const s0 = state(tAnchor);
+    if (s0[0] < -0.05 || s0[0] > STROKE + 0.05) continue;
+    const fn = bridge(tAnchor, tHit, s0[0], s0[1], s0[2], level, 0, 0);
+    if (Math.abs(fn(tHit)[0] - level) > 1) continue;
+    if (!inRange(fn, tAnchor, tHit, 0, STROKE) || !inSpan(fn, tAnchor, tHit, s0[0], level)) continue;
+    const speed = fn(tAnchor)[1];
+    const matched = Math.abs(s0[1]) < 80 || Math.abs(speed - s0[1]) <= Math.max(80, 0.35 * Math.abs(s0[1]));
+    if (matched) return [tAnchor, tHit, fn];
+    fallback = [tAnchor, tHit, fn];
+  }
+  return fallback;
+}
+function releaseAfter(state, tOff, tRight, level) {
+  let endP = state(tRight)[0];
+  const endV = state(tRight)[1];
+  const endA = state(tRight)[2];
+  endP = Math.max(0, Math.min(STROKE, endP));
+  const gap = tRight - tOff;
+  if (gap <= 1e-5) return [tOff, hold(level), false];
+  if (Math.abs(endP - level) <= 0.5) return [tRight, hold(level), false];
+  const fracs = [0.12, 0.22, 0.36, 0.52, 0.74, 1];
+  for (let i = 0; i < fracs.length; i++) {
+    const h = gap * fracs[i];
+    if (h <= 1e-4) continue;
+    const toEnd = fracs[i] === 1;
+    const tBack = toEnd ? tRight : tOff + h;
+    let sp, sv, sa;
+    if (toEnd) {
+      sp = endP; sv = endV; sa = endA;
+    } else {
+      const sample = state(tBack);
+      sp = sample[0]; sv = sample[1]; sa = sample[2];
+      if (sp < -0.05 || sp > STROKE + 0.05) continue;
+    }
+    const fn = bridge(tOff, tBack, level, 0, 0, sp, sv, sa);
+    if (!inRange(fn, tOff, tBack, 0, STROKE) || !inSpan(fn, tOff, tBack, level, sp)) continue;
+    if (!toEnd && !pieceInside(state, tBack, tRight)) continue;
+    return [tBack, fn, !toEnd];
+  }
+  return null;
+}
+function capPiece(state, tLeft, tRight) {
+  const trips = excursions(state, tLeft, tRight);
+  if (!trips.length) return time => state(time)[0];
+  const segments = [];
+  function add(t0, t1, fn) {
+    if (t1 > t0 + 1e-8) segments.push([t0, t1, fn]);
+  }
+  let cursor = tLeft;
+  for (let k = 0; k < trips.length; k++) {
+    let level = trips[k][0];
+    let tHit = trips[k][1];
+    let tLeave = trips[k][2];
+    if (tLeave <= cursor + 1e-5) continue;
+    tHit = Math.min(Math.max(tHit, cursor), tRight);
+    tLeave = Math.min(Math.max(tLeave, tHit), tRight);
+    const braked = brakeBefore(state, cursor, tHit, level);
+    if (!braked) return null;
+    const tAnchor = braked[0];
+    const tOn = braked[1];
+    if (tAnchor > cursor + 1e-6) add(cursor, tAnchor, state);
+    add(tAnchor, tOn, braked[2]);
+    const tOff = Math.min(tRight, Math.max(tOn, tLeave));
+    add(tOn, tOff, hold(level));
+    if (tOff >= tRight - 1e-7) {
+      cursor = tRight;
+      break;
+    }
+    const released = releaseAfter(state, tOff, tRight, level);
+    if (!released) return null;
+    add(tOff, released[0], released[1]);
+    cursor = released[0];
+    if (cursor >= tRight - 1e-7) break;
+  }
+  if (cursor < tRight - 1e-6) add(cursor, tRight, state);
+  if (!segments.length) return null;
+  return function(time) {
+    for (let i = 0; i < segments.length; i++) {
+      if (time <= segments[i][1] + 1e-8) return segments[i][2](time)[0];
+    }
+    return segments[segments.length - 1][2](time)[0];
+  };
+}
+function makePath(rawPts) {
+  const pts = cleanKnots(rawPts);
+  const state = cubicState(pts);
+  const n = pts.length - 1;
+  const pieces = [];
+  for (let i = 0; i < n; i++) {
+    pieces.push([pts[i].t, pts[i + 1].t, time => state(time)[0]]);
+  }
+  return function(time) {
+    if (time <= pts[0].t) return pts[0].p;
+    if (time >= pts[pts.length - 1].t) return pts[pts.length - 1].p;
+    for (let i = 0; i < pieces.length; i++) {
+      if (time <= pieces[i][1] + 1e-9) return pieces[i][2](time);
+    }
+    return pts[pts.length - 1].p;
+  };
+}
+function softSpeed(v, limit) {
+  const knee = limit * 0.28;
+  const mag = Math.abs(v);
+  const start = limit - knee;
+  if (mag <= start) return v;
+  const u = (mag - start) / knee;
+  const shaped = limit - knee * Math.exp(-u);
+  return (v < 0 ? -1 : 1) * shaped;
+}
+function smoothLimited(geometric, pts) {
+  const limit = Math.max(1, speedLimit);
+  const ts = [];
+  const per = 64;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const t0 = pts[k].t;
+    const t1 = pts[k + 1].t;
+    const start = k === 0 ? 0 : 1;
+    for (let i = start; i <= per; i++) ts.push(t0 + (t1 - t0) * (i / per));
+  }
+  const t0 = ts[0];
+  const t1 = ts[ts.length - 1];
+  function rawSlope(t) {
+    const dt = Math.min(0.012, Math.max(1e-4, (t1 - t0) / 80));
+    const left = Math.max(t0, t - dt);
+    const right = Math.min(t1, t + dt);
+    if (right <= left) return 0;
+    return (geometric(right) - geometric(left)) / (right - left);
+  }
+  const raw = ts.map(rawSlope);
+  let peak = 0;
+  raw.forEach(s => { peak = Math.max(peak, Math.abs(s)); });
+  if (peak <= limit) return geometric;
+  const jmax = limit / (0.1 * 0.1);
+  const v = [raw[0]];
+  let speed = raw[0];
+  let accel = 0;
+  for (let i = 0; i < ts.length - 1; i++) {
+    const dt = Math.max(1e-4, ts[i + 1] - ts[i]);
+    const target = softSpeed(raw[i + 1], limit);
+    let want = (target - speed) / dt;
+    const step = jmax * dt;
+    if (want > accel + step) want = accel + step;
+    else if (want < accel - step) want = accel - step;
+    accel = want;
+    speed += accel * dt;
+    v.push(speed);
+  }
+  const pos = [pts[0].p];
+  for (let i = 0; i < ts.length - 1; i++) {
+    pos.push(pos[i] + 0.5 * (v[i] + v[i + 1]) * (ts[i + 1] - ts[i]));
+  }
+  return function(time) {
+    if (time <= ts[0]) return pos[0];
+    if (time >= ts[ts.length - 1]) return pos[pos.length - 1];
+    let lo = 0;
+    let hi = ts.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (ts[mid] <= time) lo = mid;
+      else hi = mid;
+    }
+    const span = ts[hi] - ts[lo];
+    if (span <= 1e-9) return pos[lo];
+    const u = (time - ts[lo]) / span;
+    return pos[lo] + (pos[hi] - pos[lo]) * u;
+  };
+}
+function splineAt(pts, time) {
+  return makePath(pts)(time);
+}
+function curveBox(canvas) {
+  return {
+    canvas,
+    w: canvas.clientWidth,
+    h: canvas.clientHeight,
+    innerW: canvas.clientWidth - curvePad.l - curvePad.r,
+    innerH: canvas.clientHeight - curvePad.t - curvePad.b,
+  };
+}
+function toXY(t, p, box) {
+  const x = curvePad.l + (t / duration()) * box.innerW;
+  const y = curvePad.t + (1 - p / 2000) * box.innerH;
+  return [x, y];
+}
+function fromXY(x, y, box) {
+  const t = ((x - curvePad.l) / box.innerW) * duration();
+  const p = (1 - (y - curvePad.t) / box.innerH) * 2000;
+  return [t, clampCount(p)];
+}
+function pinCurveEnds() {
+  const dur = duration();
+  [1, 2].forEach(id => {
+    const pts = curves[id];
+    if (!pts.length) return;
+    pts[0].t = 0;
+    pts[pts.length - 1].t = dur;
+    if (cycleCount() > 1) pts[pts.length - 1].p = pts[0].p;
+  });
+}
+function drawCurve() {
+  pinCurveEnds();
+  const paths = {1: makePath(curves[1]), 2: makePath(curves[2])};
+  [1, 2].forEach(id => {
+    drawPosition(id, paths[id]);
+    drawSpeed(id, paths[id]);
+    drawForce(id);
+  });
+}
+function drawPosition(id, at) {
+  const box = curveBox(document.getElementById("curve" + id));
+  const canvas = box.canvas;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(box.w * dpr);
+  canvas.height = Math.round(box.h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, box.w, box.h);
+  ctx.strokeStyle = "#e4dfd4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let g = 0; g <= 4; g++) {
+    const y = curvePad.t + (g / 4) * box.innerH;
+    ctx.moveTo(0, y);
+    ctx.lineTo(box.w, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = "#5c574e";
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("2000", 2, 12);
+  ctx.fillText("0", 2, box.h - 16);
+  ctx.fillText("0", 2, box.h - 3);
+  ctx.textAlign = "right";
+  ctx.fillText(duration().toFixed(0) + " s", box.w - 2, box.h - 3);
+  ctx.textAlign = "left";
+  const other = makePath(curves[id === 1 ? 2 : 1]);
+  ctx.beginPath();
+  for (let s = 0; s <= 180; s++) {
+    const t = (s / 180) * duration();
+    const [x, y] = toXY(t, Math.max(0, Math.min(STROKE, other(t))), box);
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "#d5d0c8";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  for (let s = 0; s <= 180; s++) {
+    const t = (s / 180) * duration();
+    const [x, y] = toXY(t, Math.max(0, Math.min(STROKE, at(t))), box);
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "#1a1a1a";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  drawMeasured(ctx, id, pt => toXY(pt.t, Math.max(0, Math.min(STROKE, pt.p)), box));
+  const closed = cycleCount() > 1;
+  curves[id].forEach((pt, index) => {
+    if (closed && index === curves[id].length - 1) return;
+    const [x, y] = toXY(pt.t, pt.p, box);
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fill();
+  });
+}
+const trace = {1: [], 2: []};
+let tracePlay = 0;
+let traceCycle = -1;
+let traceSample = -1;
+let traceRead = {1: -1, 2: -1};
+function traceSpeed(pts, index) {
+  const now = pts[index];
+  if (index < 1) return null;
+  let j = index - 1;
+  while (j > 0 && now.t - pts[j].t < 0.15) j--;
+  const dt = now.t - pts[j].t;
+  if (dt < 0.04) return null;
+  return (now.p - pts[j].p) / dt;
+}
+function drawMeasured(ctx, id, map) {
+  const pts = trace[id];
+  if (!pts || pts.length < 2) return;
+  ctx.beginPath();
+  let drawing = false;
+  pts.forEach((pt, index) => {
+    const xy = map(pt, index, pts);
+    if (!xy) {
+      drawing = false;
+      return;
+    }
+    if (!drawing) {
+      ctx.moveTo(xy[0], xy[1]);
+      drawing = true;
+    } else ctx.lineTo(xy[0], xy[1]);
+  });
+  ctx.strokeStyle = "#c62828";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+const FORCE_MIN_N = 10;
+function forceLimit(id) {
+  let peak = FORCE_MIN_N;
+  (trace[id] || []).forEach(pt => {
+    if (pt.f != null && isFinite(pt.f)) peak = Math.max(peak, Math.abs(pt.f));
+  });
+  return peak;
+}
+function yOfForce(f, h, limit) {
+  const pad = curvePad;
+  return pad.t + (1 - (f + limit) / (2 * limit)) * (h - pad.t - pad.b);
+}
+function drawForce(id) {
+  const canvas = document.getElementById("force" + id);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const pad = curvePad;
+  const dur = duration();
+  const limit = forceLimit(id);
+  const limitText = Number.isInteger(limit) ? String(limit) : limit.toFixed(1);
+  const xOf = t => pad.l + (t / dur) * (w - pad.l - pad.r);
+  const yOf = f => yOfForce(f, h, limit);
+  ctx.strokeStyle = "#e4dfd4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, yOf(0));
+  ctx.lineTo(w, yOf(0));
+  ctx.stroke();
+  ctx.fillStyle = "#5c574e";
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(limitText + " N", 2, 12);
+  ctx.fillText("0", 2, yOf(0) - 2);
+  ctx.fillText("−" + limitText, 2, h - 16);
+  ctx.fillText("0", 2, h - 3);
+  ctx.textAlign = "right";
+  ctx.fillText(dur.toFixed(0) + " s", w - 2, h - 3);
+  drawMeasured(ctx, id, (pt) => {
+    if (pt.f == null || !isFinite(pt.f)) return null;
+    return [xOf(pt.t), yOf(pt.f)];
+  });
+}
+function slopeAt(at, t, dur) {
+  const dt = Math.min(0.02, dur / 20);
+  const left = Math.max(0, t - dt);
+  const right = Math.min(dur, t + dt);
+  if (right <= left) return 0;
+  return (at(right) - at(left)) / (right - left);
+}
+let speedLimit = 1620;
+let speedDrag = -1;
+let speedDragId = 0;
+let speedHandles = {1: [], 2: []};
+function speedOfY(y, peak, h) {
+  const pad = curvePad;
+  const inner = Math.max(1, h - pad.t - pad.b);
+  const u = (y - pad.t) / inner;
+  return (1 - u) * 2 * peak - peak;
+}
+function yOfSpeed(v, peak, h) {
+  const pad = curvePad;
+  return pad.t + (1 - (v + peak) / (2 * peak)) * (h - pad.t - pad.b);
+}
+function timeOfX(x, w) {
+  const pad = curvePad;
+  const inner = Math.max(1, w - pad.l - pad.r);
+  return ((x - pad.l) / inner) * duration();
+}
+function setSegmentSpeed(id, seg, targetV) {
+  const pts = curves[id];
+  if (seg < 0 || seg >= pts.length - 1) return;
+  const saved = pts.map(pt => pt.p);
+  const tMid = (pts[seg].t + pts[seg + 1].t) / 2;
+  let lo = 0;
+  let hi = 2000;
+  for (let k = 0; k < 18; k++) {
+    pts[seg + 1].p = (lo + hi) / 2;
+    const v = slopeAt(makePath(pts), tMid, duration());
+    if (v < targetV) lo = pts[seg + 1].p;
+    else hi = pts[seg + 1].p;
+  }
+  const next = clampCount((lo + hi) / 2);
+  const delta = next - saved[seg + 1];
+  for (let j = 0; j < pts.length; j++) {
+    pts[j].p = j <= seg ? saved[j] : clampCount(saved[j] + delta);
+  }
+}
+function drawSpeed(id, at) {
+  const canvas = document.getElementById("speed" + id);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const pad = curvePad;
+  const dur = duration();
+  const other = makePath(curves[id === 1 ? 2 : 1]);
+  const samples = [];
+  const ghost = [];
+  for (let s = 0; s <= 180; s++) {
+    const t = (s / 180) * dur;
+    const v = slopeAt(at, t, dur);
+    const g = slopeAt(other, t, dur);
+    samples.push(v);
+    ghost.push(g);
+  }
+  const peak = speedLimit;
+  const xOf = t => pad.l + (t / dur) * (w - pad.l - pad.r);
+  const yOf = v => yOfSpeed(v, peak, h);
+  ctx.strokeStyle = "#e4dfd4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, yOf(0));
+  ctx.lineTo(w, yOf(0));
+  ctx.stroke();
+  ctx.fillStyle = "#5c574e";
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(Math.round(peak).toString(), 2, pad.t + 10);
+  ctx.fillText("0", 2, yOf(0) - 2);
+  ctx.fillText((-Math.round(peak)).toString(), 2, h - 16);
+  ctx.fillText("0", 2, h - 3);
+  ctx.textAlign = "right";
+  ctx.fillText(dur.toFixed(0) + " s", w - 2, h - 3);
+  ctx.textAlign = "left";
+  ctx.beginPath();
+  ghost.forEach((v, s) => {
+    const t = (s / 180) * dur;
+    const x = xOf(t);
+    const y = yOf(v);
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "#d5d0c8";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  samples.forEach((v, s) => {
+    const t = (s / 180) * dur;
+    const x = xOf(t);
+    const y = yOf(v);
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "#1a1a1a";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  drawMeasured(ctx, id, (pt, index, pts) => {
+    const v = traceSpeed(pts, index);
+    if (v == null || !isFinite(v)) return null;
+    return [xOf(pt.t), yOf(v)];
+  });
+  speedHandles[id] = [];
+  const knots = curves[id];
+  const segCount = cycleCount() > 1 ? Math.max(0, knots.length - 2) : knots.length - 1;
+  for (let i = 0; i < segCount; i++) {
+    const t = (knots[i].t + knots[i + 1].t) / 2;
+    const v = slopeAt(at, t, dur);
+    const x = xOf(t);
+    const y = yOf(v);
+    speedHandles[id].push({seg: i, t, v, x, y});
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fill();
+  }
+}
+function nearestSpeedHandle(id, x, y) {
+  let best = -1;
+  let bestD = 12;
+  (speedHandles[id] || []).forEach((handle, index) => {
+    const dist = Math.hypot(handle.x - x, handle.y - y);
+    if (dist < bestD) {
+      bestD = dist;
+      best = index;
+    }
+  });
+  return best;
+}
+function speedLineDistance(id, x, y) {
+  const canvas = document.getElementById("speed" + id);
+  const dur = duration();
+  const at = makePath(curves[id]);
+  let best = 1e9;
+  for (let s = 0; s <= 180; s++) {
+    const t = (s / 180) * dur;
+    const px = curvePad.l + (t / dur) * (canvas.clientWidth - curvePad.l - curvePad.r);
+    const py = yOfSpeed(slopeAt(at, t, dur), speedLimit, canvas.clientHeight);
+    best = Math.min(best, Math.hypot(px - x, py - y));
+  }
+  return best;
+}
+function nearestMarker(id, x, y) {
+  const box = curveBox(document.getElementById("curve" + id));
+  let best = -1;
+  let bestD = 12;
+  const closed = cycleCount() > 1;
+  curves[id].forEach((pt, index) => {
+    if (closed && index === curves[id].length - 1) return;
+    const [px, py] = toXY(pt.t, pt.p, box);
+    const dist = Math.hypot(px - x, py - y);
+    if (dist < bestD) {
+      bestD = dist;
+      best = index;
+    }
+  });
+  return best;
+}
+function curveDistance(id, x, y) {
+  const box = curveBox(document.getElementById("curve" + id));
+  const at = makePath(curves[id]);
+  let best = 1e9;
+  for (let s = 0; s <= 180; s++) {
+    const t = (s / 180) * duration();
+    const [px, py] = toXY(t, at(t), box);
+    best = Math.min(best, Math.hypot(px - x, py - y));
+  }
+  return best;
+}
+function localPoint(ev, el) {
+  const rect = el.getBoundingClientRect();
+  return [ev.clientX - rect.left, ev.clientY - rect.top];
+}
+document.getElementById("dur").onchange = () => {
+  const next = duration();
+  [1, 2].forEach(id => {
+    const pts = curves[id];
+    const prev = pts[pts.length - 1].t || next;
+    pts.forEach((pt, index) => {
+      if (index === 0) pt.t = 0;
+      else if (index === pts.length - 1) pt.t = next;
+      else pt.t = Math.min(next - 0.05, Math.max(0.05, pt.t * next / prev));
+    });
+  });
+  drawCurve();
+};
+document.getElementById("cycles").onchange = () => drawCurve();
+let playFrame = 0;
+let lastPlay = null;
+let previewElapsed = 0;
+let frozen = false;
+function cycleCount() {
+  return Math.max(1, Math.min(20, Math.round(Number(document.getElementById("cycles").value) || 1)));
+}
+function placeNow(t, dur) {
+  const frac = dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
+  document.querySelectorAll(".now").forEach(mark => {
+    const canvas = mark.parentElement.querySelector("canvas");
+    mark.style.display = "block";
+    mark.style.left = (frac * canvas.clientWidth) + "px";
+  });
+}
+function hideNow() {
+  document.querySelectorAll(".now").forEach(mark => { mark.style.display = "none"; });
+}
+function runPreview(dur, cycles, startAt = 0) {
+  const total = dur * cycles;
+  const paths = {1: makePath(curves[1]), 2: makePath(curves[2])};
+  const t0 = performance.now() - startAt * 1000;
+  cancelAnimationFrame(playFrame);
+  const tick = (now) => {
+    if (frozen) return;
+    const elapsed = (now - t0) / 1000;
+    previewElapsed = elapsed;
+    if (elapsed >= total) {
+      [1, 2].forEach(id => { if (!dragging[id]) setCommand(id, paths[id](dur)); });
+      hideNow();
+      return;
+    }
+    const t = elapsed % dur;
+    placeNow(t, dur);
+    [1, 2].forEach(id => {
+      if (!dragging[id]) setCommand(id, paths[id](t));
+    });
+    playFrame = requestAnimationFrame(tick);
+  };
+  playFrame = requestAnimationFrame(tick);
+}
+function freezeMotion() {
+  frozen = true;
+  cancelAnimationFrame(playFrame);
+}
+function paintPlay() {
+  const btn = document.getElementById("play");
+  const running = motion === "run";
+  btn.disabled = motion === "wait";
+  btn.className = running ? "icon go playing" : (motion === "wait" ? "icon wait" : "icon go");
+  btn.setAttribute("aria-label", running ? "Pause" : "Play");
+}
+function showPlay(data) {
+  if (data && data.busy && data.paused) motion = "pause";
+  else if (data && data.busy) motion = "run";
+  else if (motion !== "wait") motion = "idle";
+  paintPlay();
+}
+function setPlayBusy(on) {
+  motion = on ? "wait" : "idle";
+  paintPlay();
+}
+function finishReady(data) {
+  setRecordBusy(false);
+  if (!data || data.ok === false) {
+    setPlayBusy(false);
+    return;
+  }
+  if (data.busy) showPlay(data);
+  else setPlayBusy(false);
+  if (!data || data.ok === false) return;
+  if (data.play_checks && data.play_checks.length) {
+    const box = document.getElementById("play-checks");
+    box.replaceChildren();
+    data.play_checks.forEach(check => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const text = document.createElement("span");
+      text.textContent = check.text;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Ignore";
+      button.onclick = () => {
+        document.getElementById("ndi-gate").hidden = true;
+        if (gateFrom === "record") setRecordBusy(true);
+        else if (gateFrom === "resume") api("/api/play/ignore", {id: check.id}).then(afterResume);
+        else setPlayBusy(true);
+        if (gateFrom === "resume") return;
+        api("/api/play/ignore", {id: check.id}).then(finishReady);
+      };
+      row.append(text, button);
+      box.append(row);
+    });
+    document.getElementById("ndi-gate").hidden = false;
+    return;
+  }
+  if (data.busy && lastPlay) runPreview(lastPlay.dur, lastPlay.cycles);
+}
+document.getElementById("play-cancel").onclick = () => {
+  document.getElementById("ndi-gate").hidden = true;
+  setPlayBusy(false);
+};
+function selectedPlan() {
+  const id = document.getElementById("plan").value;
+  const warn = document.getElementById("marker-warn");
+  if (id === "curve") {
+    if (warn.dataset.plan) {
+      delete warn.dataset.plan;
+      warn.hidden = true;
+    }
+    return {
+      pair1: curves[1].map(pt => [pt.t, pt.p]),
+      pair2: curves[2].map(pt => [pt.t, pt.p]),
+    };
+  }
+  const plan = TEST_PLANS[id];
+  if (!plan) {
+    warn.dataset.plan = "1";
+    warn.hidden = false;
+    warn.textContent = id + " is not generated yet";
+    return null;
+  }
+  delete warn.dataset.plan;
+  warn.hidden = true;
+  return plan;
+}
+function afterResume(data) {
+  if (data && data.play_checks && data.play_checks.length) {
+    gateFrom = "resume";
+    const box = document.getElementById("play-checks");
+    box.replaceChildren();
+    data.play_checks.forEach(check => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const text = document.createElement("span");
+      text.textContent = check.text;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Ignore";
+      button.onclick = () => {
+        document.getElementById("ndi-gate").hidden = true;
+        api("/api/play/ignore", {id: check.id}).then(afterResume);
+      };
+      row.append(text, button);
+      box.append(row);
+    });
+    document.getElementById("ndi-gate").hidden = false;
+    return;
+  }
+  document.getElementById("ndi-gate").hidden = true;
+  if (data && data.paused) return;
+  frozen = false;
+  if (lastPlay) runPreview(lastPlay.dur, lastPlay.cycles, previewElapsed);
+}
+document.getElementById("plan").onchange = () => {
+  const warn = document.getElementById("marker-warn");
+  if (!warn.dataset.plan) return;
+  delete warn.dataset.plan;
+  warn.hidden = true;
+};
+document.getElementById("stop").onclick = () => {
+  freezeMotion();
+  previewElapsed = 0;
+  motion = "idle";
+  paintPlay();
+  api("/api/stop", {});
+};
+document.getElementById("play").onclick = () => {
+  if (motion === "run") {
+    freezeMotion();
+    motion = "pause";
+    paintPlay();
+    api("/api/pause", {});
+    return;
+  }
+  if (motion === "pause") {
+    api("/api/resume", {}).then(afterResume);
+    return;
+  }
+  const plan = selectedPlan();
+  if (!plan) return;
+  drawCurve();
+  const dur = plan.duration || duration();
+  const cycles = plan.cycles || cycleCount();
+  lastPlay = {dur, cycles};
+  previewElapsed = 0;
+  frozen = false;
+  gateFrom = "play";
+  motion = "wait";
+  paintPlay();
+  api("/api/play", {
+    duration: dur,
+    cycles,
+    mode: document.getElementById("smooth").checked ? "smooth" : "position",
+    note: noteBox.value,
+    pair1: plan.pair1,
+    pair2: plan.pair2,
+  }).then(finishReady);
+};
+let dragPair = 0;
+[1, 2].forEach(id => {
+  const curve = document.getElementById("curve" + id);
+  curve.addEventListener("pointerdown", (ev) => {
+    const [x, y] = localPoint(ev, curve);
+    let index = nearestMarker(id, x, y);
+    if (index < 0 && curveDistance(id, x, y) < 10) {
+      const [t, p] = fromXY(x, y, curveBox(curve));
+      const pts = curves[id];
+      const marker = {t: Math.min(duration() - 0.05, Math.max(0.05, t)), p};
+      pts.push(marker);
+      pts.sort((a, b) => a.t - b.t);
+      index = pts.indexOf(marker);
+      curveReady[id] = true;
+    }
+    if (index < 0) return;
+    dragAt = index;
+    dragPair = id;
+    curve.setPointerCapture(ev.pointerId);
+  });
+  curve.addEventListener("pointermove", (ev) => {
+    if (dragAt < 0 || dragPair !== id) return;
+    const pts = curves[id];
+    const [x, y] = localPoint(ev, curve);
+    const [t, p] = fromXY(x, y, curveBox(curve));
+    const pt = pts[dragAt];
+    pt.p = p;
+    if (dragAt > 0 && dragAt < pts.length - 1) {
+      const left = pts[dragAt - 1].t + 0.02;
+      const right = pts[dragAt + 1].t - 0.02;
+      pt.t = Math.min(right, Math.max(left, t));
+    }
+    drawCurve();
+  });
+  const endCurveDrag = () => { if (dragPair === id) dragAt = -1; };
+  curve.addEventListener("pointerup", endCurveDrag);
+  curve.addEventListener("pointercancel", endCurveDrag);
+  curve.addEventListener("dblclick", (ev) => {
+    const [x, y] = localPoint(ev, curve);
+    const index = nearestMarker(id, x, y);
+    const pts = curves[id];
+    if (index > 0 && index < pts.length - 1) {
+      pts.splice(index, 1);
+      drawCurve();
+    }
+  });
+  const speed = document.getElementById("speed" + id);
+  speed.addEventListener("pointerdown", (ev) => {
+    const [x, y] = localPoint(ev, speed);
+    let index = nearestSpeedHandle(id, x, y);
+    if (index < 0 && speedLineDistance(id, x, y) < 10) {
+      const t = timeOfX(x, speed.clientWidth);
+      const pts = curves[id];
+      const marker = {t: Math.min(duration() - 0.05, Math.max(0.05, t)), p: clampCount(makePath(pts)(t))};
+      pts.push(marker);
+      pts.sort((a, b) => a.t - b.t);
+      pinCurveEnds();
+      drawCurve();
+      index = nearestSpeedHandle(id, x, y);
+    }
+    if (index < 0) return;
+    speedDrag = speedHandles[id][index].seg;
+    speedDragId = id;
+    speed.setPointerCapture(ev.pointerId);
+  });
+  speed.addEventListener("pointermove", (ev) => {
+    if (speedDrag < 0 || speedDragId !== id) return;
+    const [, y] = localPoint(ev, speed);
+    const target = speedOfY(y, speedLimit, speed.clientHeight);
+    setSegmentSpeed(id, speedDrag, target);
+    drawCurve();
+  });
+  const endSpeedDrag = () => { if (speedDragId === id) speedDrag = -1; };
+  speed.addEventListener("pointerup", endSpeedDrag);
+  speed.addEventListener("pointercancel", endSpeedDrag);
+  speed.addEventListener("dblclick", (ev) => {
+    const [x, y] = localPoint(ev, speed);
+    const index = nearestSpeedHandle(id, x, y);
+    if (index < 0) return;
+    const seg = speedHandles[id][index].seg;
+    const pts = curves[id];
+    if (seg + 1 < pts.length - 1) pts.splice(seg + 1, 1);
+    else if (seg > 0) pts.splice(seg, 1);
+    else return;
+    speedDrag = -1;
+    drawCurve();
+  });
+});
+drawCurve();
+window.addEventListener("resize", drawCurve);
+refresh();
+setInterval(refresh, 50);
+</script>
+</body>
+</html>
